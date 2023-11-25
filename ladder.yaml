@@ -1,1 +1,86 @@
-
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ladder
+  labels:
+    app: ladder
+  annotations:
+    kubesailEditorUid: c6be85c4-99aa-4e0e-8f17-37380ac1ce5c
+    kubesail.com/template: carpaltunnel/ladder:v6
+spec:
+  strategy:
+    type: Recreate
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ladder
+  template:
+    metadata:
+      labels:
+        app: ladder
+    spec:
+      containers:
+        - name: ladder
+          image: ghcr.io/everywall/ladder:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: RULESET
+              value: "{{ RULESET||https://t.ly/14PSf }}"
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ladder
+  labels:
+    app: ladder
+  annotations:
+    kubesailEditorUid: 9fd8ddde-a5a2-4188-b446-27b0f3bfe6dc
+    cert-manager.io/cluster-issuer: letsencrypt
+    nginx.ingress.kubernetes.io/proxy-body-size: 500m
+    nginx.org/websocket-services: ladder
+    kubernetes.io/tls-acme: "true"
+    kubesail.com/template: carpaltunnel/ladder:v6
+spec:
+  tls:
+    - hosts:
+        - ladder.{{ CLUSTER_ADDRESS }}
+        - ladder.{{ LOCAL_CLUSTER_ADDRESS }}
+  rules:
+    - host: ladder.{{ CLUSTER_ADDRESS }}
+      http:
+        paths:
+          - pathType: ImplementationSpecific
+            backend:
+              service:
+                name: ladder
+                port:
+                  name: http
+    - host: ladder.{{ LOCAL_CLUSTER_ADDRESS }}
+      http:
+        paths:
+          - pathType: ImplementationSpecific
+            backend:
+              service:
+                name: ladder
+                port:
+                  name: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ladder
+  labels:
+    app: ladder
+  annotations:
+    kubesailEditorUid: 8f5fa438-24d7-435a-89ee-df5b741d377b
+    kubesail.com/template: carpaltunnel/ladder:v6
+spec:
+  selector:
+    app: ladder
+  ports:
+    - port: 8080
+      protocol: TCP
+      targetPort: http
